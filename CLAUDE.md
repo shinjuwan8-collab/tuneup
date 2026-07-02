@@ -6,13 +6,15 @@ TUNEUP (就活チューニングアプリ) — a job-hunting prep app that "tune
 toward a target company using a car metaphor (8 parts = 8 self-analysis axes).
 React 18 + Vite frontend, Express proxy backend, Claude API, deployed on Render.
 
-## Canonical stack (important — there are two in the tree)
+## Stack
 
-The **Node stack is canonical**: `server.js` + root `src/` + root `vite.config.js`.
-- `main.py` / `requirements.txt` / `frontend/` are an abandoned FastAPI variant.
-  `frontend/src/main.jsx` imports a nonexistent `App.jsx`, so it does not build.
-  Do not extend the FastAPI variant; if asked to clean up, propose deleting it.
-- The app calls `POST /api/chat` (`src/App.jsx`); only `server.js` serves that route.
+Single stack: `server.js` (Express proxy) + root `src/` (React) + Vite.
+(An abandoned FastAPI variant — `main.py`, `frontend/` — was deleted 2026-07-02.)
+
+`/api/chat` contract: the client sends only `{ system?, messages }`. The server
+validates/allowlists the body (`lib/chat.js`), pins `model` and `max_tokens`
+(`server.js` — the only place a model ID lives), rate-limits per IP, and
+times out upstream calls. Never let the client choose model or token budget.
 
 ## Commands
 
@@ -23,16 +25,31 @@ npm run dev:client                             # terminal 2 (Vite, port 5173)
 npm run build                                  # outputs root dist/ (served by server.js)
 ```
 
-There are no tests or linters yet. Verification = build succeeds + drive the app
-(company input → 8 questions → results screen).
+`npm test` runs unit tests (node:test, zero deps) for `lib/chat.js`.
+Full verification = build + tests + drive the app (company input → 8
+questions → results screen).
 
-## Known issues (see docs/audit-2026-07-02.md for evidence)
+## Known issues (see docs/audit-2026-07-02.md for the founding audit)
 
-- README model name is stale (`claude-sonnet-4`; code uses `claude-sonnet-4-5`).
-- Root `dist/` is not gitignored (only `frontend/dist/` is).
-- `/api/chat` forwards the client body verbatim — no model/max_tokens allowlist.
 - Claude prompts live inline in `src/App.jsx` (analyzeCompany, validateAndNext,
   analyzeAnswers). When touching them, consider extracting to `src/prompts.js`.
+- Rate limiter is in-memory: correct for one Render instance; revisit if
+  scaling to multiple instances (move to a shared store).
+
+## Production quality bar (all code changes)
+
+1. **Secrets**: only via environment variables; never in code, logs, or client
+   bundles. `.env` stays gitignored; `.env.example` documents required vars.
+2. **Trust boundaries**: validate and allowlist every client-supplied field at
+   the server; the client never controls model, token budget, or cost levers.
+3. **Errors**: every external call gets a timeout, a caught error path, and a
+   user-safe message (no stack traces or internals to the client); log the
+   detail server-side.
+4. **Tests**: pure logic lives in dependency-free modules (`lib/`) with
+   node:test coverage including hostile inputs (injection attempts, oversize,
+   wrong types). New logic ships with tests.
+5. **Docs**: README commands must actually work; model/config facts stated in
+   exactly one place and referenced elsewhere.
 
 ---
 

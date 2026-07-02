@@ -15,7 +15,8 @@ async function callClaude(messages, system) {
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1500, system, messages }),
+    body: JSON.stringify({ system, messages }), // model/max_tokens are pinned server-side
+
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error.message);

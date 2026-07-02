@@ -30,5 +30,5 @@ http://localhost:5173 でアクセス
 
 - **フロント**: React 18 + Vite
 - **バックエンド**: Express (APIプロキシ)
-- **AI**: Claude API (claude-sonnet-4)
+- **AI**: Claude API (claude-sonnet-4-5 — モデルIDは server.js で一元管理)
 - **デプロイ**: Render
