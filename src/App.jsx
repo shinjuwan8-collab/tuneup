@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { Preferences } from "@capacitor/preferences";
+import { Clipboard } from "@capacitor/clipboard";
 
 const INK = "#1B2333";
 const PAPER = "#FAF8F3";
@@ -72,10 +74,14 @@ function fmt(iso) {
 function daysSince(iso) {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
 }
-function copyText(t) {
-  const ta = document.createElement("textarea");
-  ta.value = t; document.body.appendChild(ta); ta.select();
-  document.execCommand("copy"); document.body.removeChild(ta);
+async function copyText(t) {
+  try {
+    await Clipboard.write({ string: t });
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = t; document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); document.body.removeChild(ta);
+  }
 }
 
 /* ---------- 本体 ---------- */
@@ -92,15 +98,27 @@ export default function App() {
   const [verifyResult, setVerifyResult] = useState(null);
 
   useEffect(() => {
-    try {
-      const r = localStorage.getItem("decl_v2");
-      if (r) setStore(JSON.parse(r));
-    } catch {}
-    setLoading(false);
+    (async () => {
+      try {
+        // ネイティブ(iOS)では UserDefaults に保存され、WebViewストレージの
+        // OSによる削除の影響を受けない。Web では localStorage が使われる。
+        const { value } = await Preferences.get({ key: "decl_v2" });
+        if (value) setStore(JSON.parse(value));
+        else {
+          // 旧バージョン(localStorage直接保存)からの移行
+          const legacy = localStorage.getItem("decl_v2");
+          if (legacy) {
+            await Preferences.set({ key: "decl_v2", value: legacy });
+            setStore(JSON.parse(legacy));
+          }
+        }
+      } catch {}
+      setLoading(false);
+    })();
   }, []);
 
   const persist = async (s) => {
-    try { localStorage.setItem("decl_v2", JSON.stringify(s)); } catch (e) { console.error(e); }
+    try { await Preferences.set({ key: "decl_v2", value: JSON.stringify(s) }); } catch (e) { console.error(e); }
     setStore(s);
   };
 
@@ -202,7 +220,7 @@ export default function App() {
 
   return (
     <div style={{ minHeight: "100vh", background: PAPER, color: INK, fontFamily: sans, paddingBottom: 48 }}>
-      <header style={{ padding: "24px 20px 0", borderBottom: `1px solid ${LINE}` }}>
+      <header style={{ padding: "calc(24px + env(safe-area-inset-top)) 20px 0", borderBottom: `1px solid ${LINE}` }}>
         <div style={{ fontSize: 10, letterSpacing: "0.3em", color: MIST }}>SIGNED · CHAINED · VERIFIABLE</div>
         <h1 style={{ fontFamily: serif, fontSize: 22, fontWeight: 600, margin: "6px 0 14px", letterSpacing: "0.08em" }}>自殺しない宣言</h1>
         <nav style={{ display: "flex", gap: 4 }}>

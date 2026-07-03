@@ -1,0 +1,8 @@
+{
+  "appId": "com.shinjuwan.declaration",
+  "appName": "自殺しない宣言",
+  "webDir": "dist",
+  "ios": {
+    "contentInset": "always"
+  }
+}
